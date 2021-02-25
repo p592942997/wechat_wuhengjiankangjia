@@ -1,5 +1,6 @@
 <?php
 // 应用公共文件
+use think\Db;
 
 /**
  * 字节数Byte转换为KB、MB、GB、TB
@@ -150,4 +151,53 @@ function make_hash($module_name,$id){
     $ip = $_SERVER['REMOTE_ADDR'];
     $randNum = rand(1,1000);
     return md5($module_name.$id.$time.$ip.$randNum);
+}
+
+
+/**
+ * 查询产品图片
+ * $type:product-产品本身图片，product_describe - 产品介绍图片
+ */
+function product_img($company_id,$type,$product_hash,$limit="",$field="file_url"){
+    $img_data = Db::name('index_attachment')
+        ->where('file_type','img')
+        ->where('module',$type)
+        ->where('module_hash',$product_hash)
+        ->where('status',1)
+        ->limit($limit)
+        ->field($field)
+        ->order('file_id asc')
+        ->select();
+    $img_arr = [];
+    if(!empty($img_data)){  //查找上传的图片
+        foreach ($img_data as $k => $v) {
+            $img_arr[] = config('wxprogramme.access_domain') . $v['file_url'];
+        }
+    }else{  //查找默认图
+        $img_data = Db::name('shop_'.$type.'_default_img')
+            ->where('company_id',$company_id)
+            ->where('status',1)
+            ->order('img_order asc')
+            ->select();
+        if(!empty($img_data)){
+            foreach ($img_data as $k=>$v){
+                $img_arr[] = config('wxprogramme.access_domain').$v['img_url'];
+            }
+        }else{  //直接返回config默认图
+            if($type == 'product_describe'){
+                $product_info = Db::name('wms_product')
+                    ->where('product_hash',$product_hash)
+                    ->field('product_external_img')
+                    ->find();
+                if(!empty($product_info['product_external_img'])){  //有外部图片地址
+                    $img_arr = [];
+                }else{
+                    $img_arr = ['http://upyun.yuximi.com/imi_jxs/images/zanwu.png'];
+                }
+            }else{
+                $img_arr = ['http://upyun.yuximi.com/imi_jxs/images/zanwu.png'];
+            }
+        }
+    }
+    return $img_arr;
 }
